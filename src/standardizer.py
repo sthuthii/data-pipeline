@@ -233,8 +233,7 @@ class Standardizer:
     # Field-level helpers
     # ------------------------------------------------------------------ #
 
-    @staticmethod
-    def _normalize_date(self, date_str: str) -> str:
+    def _normalize_date(self, date_str: str) -> Optional[str]:
         if not date_str or not isinstance(date_str, str):
             return None
 
@@ -255,7 +254,7 @@ class Standardizer:
             except ValueError:
                 continue
 
-        self.logger.warning(f"Could not parse date: {date_str}")
+        logger.warning(f"Could not parse date: {date_str}")
         return None
 
     @staticmethod
@@ -269,8 +268,6 @@ class Standardizer:
     def _clean_age(raw: Optional[str]) -> Optional[str]:
         if not raw:
             return None
-        # Preserve redaction markers as-is; real deployments would decode
-        # from the un-redacted source before this stage.
         return raw
 
     @staticmethod
@@ -278,7 +275,6 @@ class Standardizer:
         if raw is None:
             return None, False
         
-        # Strip whitespace and isolate the first numeric component found
         raw_str = str(raw).strip()
         match = re.search(r"[-+]?\d*\.\d+|\d+", raw_str)
         
