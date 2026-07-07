@@ -191,6 +191,7 @@ class Standardizer:
             source_file=row.source_file,
             document_id=row.document_id,
             correlation_id=row.correlation_id,
+            raw_payload_json=getattr(row, "raw_text", str(row.fields)),
             canonical_fields=canonical,
             standardization_flags=flags,
         )
