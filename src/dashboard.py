@@ -102,14 +102,14 @@ def records_to_dataframe(rows: list[dict], defined_tests: list[str]) -> tuple[pd
         )
         
         pivoted_list = []
-        # FR-2.2: Reshape lab entries into a fixed wide matrix schema grouped by patient identities
+        # Reshape lab entries into a fixed wide matrix schema grouped by patient identities
         for _, grp in pivot_src.groupby(["patient_name", "report_date"], dropna=False):
             # Snag primary baseline row metadata identifiers safely
             patient_row = {col: grp[col].iloc[0] for col in id_vars if col in grp.columns}
             patient_row["record_type"] = "lab_test"
             patient_row["id"] = grp["id"].iloc[0]
             
-            # Seed precisely 5 explicit blank columns for every distinct medical test
+            # Seeding precisely 5 explicit blank columns for every distinct medical test
             for test in defined_tests:
                 patient_row[f"{test}"] = None
                 patient_row[f"{test}_Result"] = None
@@ -141,7 +141,7 @@ def records_to_dataframe(rows: list[dict], defined_tests: list[str]) -> tuple[pd
 
 
 def main():
-    st.title("🏥 Medical Data Pipeline Dashboard")
+    st.title("Medical Data Pipeline Dashboard")
     st.caption("Ingestion System Platform Control Tower")
 
     tab_upload, tab_records, tab_inspector, tab_flagged, tab_analytics = st.tabs(
@@ -206,19 +206,19 @@ def main():
                 st.rerun()
 
     with tab_records:
-        st.subheader("📋 Canonical Records Registry")
+        st.subheader("Canonical Records Registry")
         if lab_df.empty and discharge_df.empty:
             st.info("No structured database records found.")
         else:
             view_mode = st.radio(
                 "Select Document View Type",
-                ["🧪 Laboratory Diagnostic Reports", "🏥 Hospital Discharge Summaries"],
+                ["Laboratory Diagnostic Reports", "Hospital Discharge Summaries"],
                 horizontal=True
             )
             
             st.markdown("---")
             
-            if view_mode == "🧪 Laboratory Diagnostic Reports":
+            if view_mode == " Laboratory Diagnostic Reports":
                 if lab_df.empty:
                     st.info("No laboratory records currently on file.")
                 else:
@@ -248,12 +248,12 @@ def main():
             col_transformed, col_raw = st.columns(2)
             
             with col_transformed:
-                st.markdown("#### ✨ Standardized Transformed Record fields")
+                st.markdown("#### Standardized Transformed Record fields")
                 transformed_data_clean = {k: v for k, v in selected_record.to_dict().items() if k not in ["selector_label", "raw_json_unpacked", "all_flags", "has_missing_field", "has_schema_error", "is_duplicate_entry"]}
                 st.json(transformed_data_clean)
                 
             with col_raw:
-                st.markdown("#### 🪵 Original Incoming Raw JSON Payload")
+                st.markdown("#### Original Incoming Raw JSON Payload")
                 if isinstance(selected_record.get("raw_json_unpacked"), dict) and selected_record["raw_json_unpacked"]:
                     st.json(selected_record["raw_json_unpacked"])
                 else:
@@ -278,8 +278,8 @@ def main():
         if df.empty:
             st.info("Upload records to view system charts.")
         else:
-            # FR-5.4: Calculate Clinic-Level Ratios defensively against float/NaN values
-            st.markdown("### 🏢 FR-5.4: Per-Clinic Data Quality Scorecard Summary")
+            # Calculate Clinic-Level Ratios defensively against float/NaN values
+            st.markdown("### Per-Clinic Data Quality Scorecard Summary")
             if "hospital_name" in df.columns and not df["hospital_name"].isna().all():
                 
                 # Safe checking logic ensuring iterable verification before text containment validation

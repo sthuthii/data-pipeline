@@ -51,7 +51,7 @@ class Validator:
             raw = json.load(f)
         self.reference_ranges = {k: v for k, v in raw.items() if not k.startswith("_")}
         
-        # FR-1.2: Load configurable deduplication rules
+        # Load configurable deduplication rules
         with open(CONFIG_DIR / "dedup_rules.json", "r", encoding="utf-8") as f:
             self.dedup_rules = json.load(f)
             
@@ -96,7 +96,7 @@ class Validator:
         if fields.get("result_raw") is None and not test_name:
             return flags
 
-        # FR-3.4: Flag non-numeric occurrences where numbers are expected
+        # Flag non-numeric occurrences where numbers are expected
         if not is_numeric:
             flags.append("NON_NUMERIC_RESULT")
             fields["test_analytics"] = "Invalid"
@@ -112,21 +112,21 @@ class Validator:
             low = ref["low"]
             high = ref["high"]
             
-            # FR-3.2: Establish extreme plausibility thresholds (e.g., 5x the normal bounds)
+            # Establish extreme plausibility thresholds (example: 5x the normal bounds)
             outlier_low = low * 0.2
             outlier_high = high * 5.0
 
             if result <= outlier_low or result >= outlier_high:
                 flags.append("OUTLIER")
-                fields["test_analytics"] = "Outlier"  # FR-3.3
+                fields["test_analytics"] = "Outlier"  
             elif result < low:
                 flags.append("OUT_OF_RANGE")
-                fields["test_analytics"] = "Below Range"  # FR-3.3
+                fields["test_analytics"] = "Below Range"  
             elif result > high:
                 flags.append("OUT_OF_RANGE")
-                fields["test_analytics"] = "Above Range"  # FR-3.3
+                fields["test_analytics"] = "Above Range"  
             else:
-                fields["test_analytics"] = "Within Range"  # FR-3.3
+                fields["test_analytics"] = "Within Range"  
 
         return flags
 
@@ -134,7 +134,7 @@ class Validator:
         fields = record.canonical_fields
         record_type = record.record_type
         
-        # FR-1.2 Fallback to patient_name if configured fallback field isn't populated
+        #  Fallback to patient_name if configured fallback field isn't populated
         identity_fields = self.dedup_rules.get(record_type, [])
         
         key_list = [record_type]

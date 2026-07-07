@@ -35,28 +35,20 @@ logger = logging.getLogger(__name__)
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 FUZZY_MATCH_THRESHOLD = 0.82  # difflib similarity ratio, 0-1
 
-DATE_FORMATS = [
-    "%d-%m-%Y",   # 09-10-2025
-    "%d-%b-%Y",   # 07-Oct-2025
-    "%Y-%m-%d",
-    "%m/%d/%Y",
-    "%d/%m/%Y",
-]
 
 GENDER_MAP = {
     "m": "MALE", "male": "MALE", "f": "FEMALE", "female": "FEMALE",
     "o": "OTHER", "other": "OTHER",
 }
 
-
+@dataclass
 @dataclass
 class CanonicalRecord:
-    """A fully standardized record, ready for validation and BigQuery."""
-
     record_type: str
     source_file: str
     document_id: Optional[str]
     correlation_id: Optional[str]
+    raw_payload_json: str  
     canonical_fields: dict = field(default_factory=dict)
     standardization_flags: list[str] = field(default_factory=list)
 

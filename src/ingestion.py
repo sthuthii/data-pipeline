@@ -34,10 +34,8 @@ class IngestedRecord:
     raw_json: dict
     checksum: str
 
-    # --- ADD THESE TWO LINES HERE ---
     document_id: Optional[str] = None
     correlation_id: Optional[str] = None
-    # --------------------------------
 
     ingested_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
@@ -48,7 +46,7 @@ class IngestedRecord:
     is_duplicate: bool = False
     error_message: Optional[str] = None
 
-    
+
 class DuplicateStore:
     """
     Stores processed file checksums.
