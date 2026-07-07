@@ -92,6 +92,10 @@ class Validator:
         result = fields.get("result_numeric")
         is_numeric = fields.get("is_numeric_result")
 
+        # Defensive handling for missing raw results to avoid false positives on structural placeholders
+        if fields.get("result_raw") is None and not test_name:
+            return flags
+
         # FR-3.4: Flag non-numeric occurrences where numbers are expected
         if not is_numeric:
             flags.append("NON_NUMERIC_RESULT")
@@ -109,7 +113,6 @@ class Validator:
             high = ref["high"]
             
             # FR-3.2: Establish extreme plausibility thresholds (e.g., 5x the normal bounds)
-            # These can also be offloaded to your reference_ranges.json config file
             outlier_low = low * 0.2
             outlier_high = high * 5.0
 
@@ -132,7 +135,6 @@ class Validator:
         record_type = record.record_type
         
         # FR-1.2 Fallback to patient_name if configured fallback field isn't populated
-        # (Maintains compatibility with your original edge-case logic)
         identity_fields = self.dedup_rules.get(record_type, [])
         
         key_list = [record_type]
