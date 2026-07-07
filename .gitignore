@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+pipeline_output.db
+service-account.json
+.streamlit/
+*.egg-info/

@@ -1,0 +1,16 @@
+{
+  "_comment": "Canonical unit -> list of raw variants seen in source documents (case-insensitive match).",
+
+  "g/dL": ["gm/dL", "g/dl", "GM/DL", "g/dL"],
+  "cells/cu.mm": ["cell/cu.mm", "cells/cu.mm", "/cu.mm"],
+  "million/cu.mm": ["mil/cu.mm", "million/cu.mm"],
+  "%": ["%", "percent"],
+  "fL": ["FL", "fl", "fL"],
+  "mg/L": ["mg/L", "mg/l"],
+  "Od Units": ["Od Units", "OD Units"],
+  "mmHg": ["mmHg", "mm Hg"],
+  "bpm": ["/min", "bpm"],
+  "mg/dL": ["mg/dL", "mg/dl"],
+  "mEq/L": ["mEq/L", "meq/l"],
+  "unitless": ["", "N/A"]
+}

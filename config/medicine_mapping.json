@@ -1,0 +1,21 @@
+{
+  "_comment": "Canonical generic medicine name -> {variants, category}. Brand/short forms from discharge summaries map to a generic name. Extend this as new brand names appear in ingested documents.",
+
+  "MISOPROSTOL": {"variants": ["Tab. miso", "TAB MISO", "Misoprostol"], "category": "labour induction"},
+  "OXYTOCIN": {"variants": ["Inj. Synto", "Syntocinon", "Oxytocin"], "category": "uterotonic"},
+  "PANTOPRAZOLE": {"variants": ["Inj. Pan", "Cap. Pan D", "CAP. PAN 40", "INJ PANTOP 40 MG", "Pantoprazole"], "category": "PPI / antacid"},
+  "PARACETAMOL": {"variants": ["Inj. PCM", "INJ PCM 1 GM", "TAB DOLO 650", "Paracetamol", "PCM"], "category": "analgesic/antipyretic"},
+  "DICLOFENAC": {"variants": ["Inj. Dynapar", "Diclofenac"], "category": "NSAID"},
+  "DICLOFENAC_PARACETAMOL": {"variants": ["Tab. Diclomol"], "category": "NSAID combination"},
+  "ONDANSETRON": {"variants": ["Inj. Emeset", "INJ. EMESET 4 MG", "Ondansetron"], "category": "antiemetic"},
+  "PENTAZOCINE": {"variants": ["Inj. Fortwin", "Pentazocine"], "category": "analgesic"},
+  "PROMETHAZINE": {"variants": ["Inj. Phenargan", "Promethazine"], "category": "antiemetic/sedative"},
+  "PROBIOTIC": {"variants": ["Cap. Vizylac", "Vizylac"], "category": "probiotic supplement"},
+  "CEFUROXIME": {"variants": ["TAB CEFTUM 500 MG", "Ceftum", "Cefuroxime"], "category": "antibiotic"},
+  "CEFOPERAZONE_SULBACTAM": {"variants": ["Inj. Supacef", "Supacef"], "category": "antibiotic"},
+  "CEFTRIAXONE": {"variants": ["INJ. MONOCEF", "Monocef", "Ceftriaxone"], "category": "antibiotic"},
+  "CIPROFLOXACIN": {"variants": ["TAB MEDICIP", "Medicip", "Ciprofloxacin"], "category": "antibiotic"},
+  "ISABGOL_PSYLLIUM": {"variants": ["POWDER NATUROLAX", "Naturolax"], "category": "laxative"},
+  "LACTULOSE": {"variants": ["SYP DUPHALAC", "Duphalac", "Lactulose"], "category": "laxative"},
+  "VITAMIN_B_COMPLEX": {"variants": ["INJ NEURO BION FORTE", "Neuro Bion Forte"], "category": "vitamin supplement"}
+}

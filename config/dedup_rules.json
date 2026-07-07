@@ -1,0 +1,18 @@
+{
+  "lab_test": [
+    "uhid",
+    "test_name",
+    "report_date",
+    "result_raw"
+  ],
+  "discharge_medication": [
+    "patient_name",
+    "medicine_name",
+    "admission_date",
+    "dose"
+  ],
+  "discharge_summary": [
+    "patient_name",
+    "admission_date"
+  ]
+}
