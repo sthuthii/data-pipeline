@@ -1,117 +1,191 @@
-# Medical Data Standardization Pipeline
+# Veritas Claims Analytics: Clinical Data Pipeline & Quality Control Tower
 
-An end-to-end pipeline that ingests medical JSON documents (lab reports
-and discharge summaries), standardizes them into a canonical schema,
-validates the data, stores it, and visualizes results with Streamlit.
+This repository contains the architecture and implementation for an enterprise-grade, event-driven clinical data ingestion, processing, standardization, and analytics platform. The system is designed to handle multi-clinic medical feeds, validate structural formats, resolve vocabulary misalignments, and enforce physiological data integrity constraints before persisting records to a high-scale data warehouse.
 
-## Workflow
+---
 
-```
-User Upload → (Local folder / Google Cloud Storage) → ingestion.py → parser.py
-→ standardizer.py → validator.py → Canonical Record → BigQuery / SQLite → Streamlit Dashboard
-```
+## Architecture Overview
 
-## Project structure
+The platform uses a decoupled, event-driven microservices architecture optimized for automated scaling, reliability, and clear separation of concerns.
+
+### Data Flow Diagram
 
 ```
-medical-data-pipeline/
-├── sample-data/                     # Sample source JSON documents
-├── config/
-│   ├── test_name_mapping.json       # Canonical lab test name ↔ variants
-│   ├── medicine_mapping.json        # Canonical medicine name ↔ variants
-│   ├── unit_mapping.json            # Canonical unit ↔ variants
-│   └── reference_ranges.json        # Standard clinical reference ranges
-├── src/
-│   ├── ingestion.py                 # Read + validate raw JSON (local or GCS)
-│   ├── parser.py                    # Detect doc type, flatten to raw rows
-│   ├── standardizer.py              # Normalize names/units/dates/gender
-│   ├── validator.py                 # Mandatory fields, ranges, duplicates
-│   ├── database.py                  # SQLite (default) or BigQuery storage
-│   └── dashboard.py                 # Streamlit UI
-├── main.py                          # CLI pipeline runner
-├── requirements.txt
-├── .env.example
-└── pipeline_output.db               # created after first run (sqlite)
+[Raw Incoming File]
+        │
+        ▼ (Uploads to Cloud Storage)
+┌────────────────────────────────┐
+│  Google Cloud Storage Bucket   │
+└───────────────┬────────────────┘
+                │
+                ▼ (Pub/Sub Event Notification)
+┌────────────────────────────────┐
+│        Google Eventarc         │
+└───────────────┬────────────────┘
+                │
+                ▼ (HTTP POST Webhook Trigger)
+┌────────────────────────────────┐
+│      Cloud Run Worker          │
+│  ┌──────────────────────────┐  │
+│  │ 1. Ingestion Engine      │  │
+│  │    (Deduplication/Hash)  │  │
+│  ├──────────────────────────┤  │
+│  │ 2. Parser Module         │  │
+│  ├──────────────────────────┤  │
+│  │ 3. Standardizer Engine   │  │
+│  ├──────────────────────────┤  │
+│  │ 4. Quality Validator     │  │
+│  └────────────┬─────────────┘  │
+└───────────────┼────────────────┘
+                │
+                ▼ (Structured Matrix Inserts)
+┌────────────────────────────────┐
+│     BigQuery Data Warehouse    │
+└───────────────┬────────────────┘
+                │
+                ▼ (Secure Read API Queries)
+┌────────────────────────────────┐
+│   Streamlit Control Tower UI   │
+└────────────────────────────────┘
+
 ```
 
-## Quick start (local, no GCP needed)
+### Core Engine Stages
+
+The processing cycle operates on a formal data transformation sequence:
+
+1. **Ingestion Layer (`src/ingestion.py`):** Acts as a structural gatekeeper. It reads the raw incoming byte stream, calculates an immutable SHA256 checksum, verifies structural JSON schema validity, and screens out duplicate updates via an execution store.
+2. **Parsing Layer (`src/parser.py`):** Isolates schema-specific components based on record classifications, translating raw data into granular, unflattened internal row matrices (`RawRow`).
+3. **Standardization Layer (`src/standardizer.py`):** Performs vocabulary alignment, clinical code translation, date normalization, unit uniformities, and raw type-casting using structural configurations.
+4. **Validation Layer (`src/validator.py`):** Evaluates standardized components against strict mandatory constraints and diagnostic reference ranges to flag structural anomalies.
+5. **Database Layer (`src/database.py`):** Manages connection caching, batch execution optimizations, and handles transactional loads to underlying persistent backends (SQLite for localized testing or BigQuery for absolute scaling).
+
+---
+
+## Core Component Directory Structure
+
+```text
+├── cloudbuild.yaml          # Google Cloud Build pipeline automation setup
+├── dashboard.py             # Streamlit Enterprise Control Tower interface
+├── pipeline.db              # Local SQLite deduplication store (development)
+├── requirements.txt         # Project package dependencies manifest
+├── config/                  # Standardization mapping rules
+│   └── test_name_mapping.json
+└── src/                     # Core system modules
+    ├── database.py          # Data warehouse ingestion and execution backend
+    ├── ingestion.py         # SHA256 deduplication and raw byte ingestion
+    ├── parser.py            # Variant clinical record structure parsing
+    ├── standardizer.py      # Schema value formatting and normalization
+    ├── validator.py         # Business rule validation and anomaly flagging
+    └── worker.py            # Eventarc listener and orchestration layer
+
+```
+
+---
+
+## Detailed Component Specifications
+
+### 1. Ingestion Layer (`src/ingestion.py`)
+
+Responsible for reading target payloads from either structural local folders or Google Cloud Storage buckets.
+
+* **Deduplication Strategy:** Rather than loading the database with concurrent records, this class calculates a unique SHA256 hash using the keys and values of the raw payload. It checks a transactional tracking state table (`processed_files`) to intercept previously processed inputs before launching downstream resources.
+* **Return Mapping:** Wraps verified contents into an `IngestedRecord` container along with contextual properties such as tracking identifiers.
+
+### 2. Parser Module (`src/parser.py`)
+
+Decouples application requirements from specific clinical formats.
+
+* **Logic Routing:** Identifies specific payload signatures (e.g., searching for expected arrays like `responseDetails`) and delegates extraction to domain-specific methods (such as `_parse_lab_report` or `_parse_discharge_summary`).
+* **Output:** Emits a collection of unified `RawRow` objects, abstracting away differences in source structures.
+
+### 3. Standardizer Engine (`src/standardizer.py`)
+
+Transforms messy data fields into highly clean canonical layouts.
+
+* **Vocabulary Alignment:** Resolves varying terminology using mapped translation tables.
+* **Data Cleansing:** Implements reliable parsing helpers including standard date parsing, gender normalization (e.g., standardizing input codes to uniform representations), numeric casting safely resilient to string noise, and parsing range definitions into isolated boundaries.
+
+### 4. Quality Validator (`src/validator.py`)
+
+Enforces strict quality barriers on variables prior to analytics visibility.
+
+* **Structural Assurance:** Assesses whether record types are complete by cross-checking mandatory schema keys.
+* **Biological Boundary Verification:** Reviews lab values against defined parameters. If a clinical data boundary is broken, the row is preserved but marked with specific issue codes (`MISSING_FIELD`, `UNMAPPED_TEST`, `RANGE_VIOLATION`) so downstream analytics can filter it out.
+
+### 5. Database Core Backend (`src/database.py`)
+
+Maintains transactional interfaces between Python classes and external storage systems.
+
+* **Hybrid Execution Modes:** Supports local SQLite pipelines for testing alongside optimized big-data streaming architectures via Google BigQuery API configurations.
+* **Audit Tracking:** Exposes structural reporting methods (`log_run`) to save global performance counts, tracking total entries alongside flag frequencies per file execution.
+
+### 6. Orchestration Layer (`src/worker.py`)
+
+A fast, lightweight API server engineered using FastAPI to act as an un-buffered event consumer.
+
+* **Cloud Integration:** Listens for HTTP POST calls forwarded by Google Eventarc whenever files arrive inside specific storage buckets.
+* **System Execution Pipeline:** Unpacks the Cloud Storage event metadata, downloads raw file bytes, and guides them step-by-step through the validation process before running database batch inserts.
+
+---
+
+## Deployment Guide
+
+### Prerequisites
+
+* Google Cloud SDK (gcloud CLI) initialized.
+* Authorized project access to `veritas-claims-analytics`.
+* Configured Container Registry permissions.
+
+### Steps to Build and Deploy the Execution Engine
+
+1. **Compile and Containerize with Cloud Build:**
+Submit your code context to Cloud Build to package the worker application environment into an automated container image:
+```bash
+gcloud builds submit --config=cloudbuild.yaml .
+
+```
+
+
+2. **Deploy to Cloud Run:**
+Launch the container into a managed Cloud Run instance within your designated data sovereignty region:
+```bash
+gcloud run deploy medical-dashboard \
+    --image gcr.io/veritas-claims-analytics/medical-worker:latest \
+    --region asia-southeast1
+
+```
+
+
+3. **Verify Deployment Health:**
+Ensure that the target service boots without errors and confirms structural port initialization by reading the Cloud Run revision history logs:
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=medical-dashboard AND NOT textPayload:_stcore" --limit=20 --format="value(textPayload)"
+
+```
+
+
+
+---
+
+## Data Control Tower Dashboard UI
+
+The `dashboard.py` module delivers a comprehensive, real-time analytics panel using Streamlit to monitor data quality indicators and track processing health across various clinical sources.
+
+### Key Management Views
+
+* **Canonical Registries:** Displays clean, structured patient records, separated into diagnostic logs and discharge files.
+* **Operational Quality Queue:** Acts as an anomaly review dashboard. It separates compliant entries from problematic ones and highlights missing values or range issues.
+* **Comparative Clinic Analytics:** Aggregates error, duplicate, and missing-field rates by clinic to flag underperforming input streams.
+* **Audit Lineage Inspector:** Provides a clear lineage view by placing the raw source payload side-by-side with the final, standardized data row.
+
+### Launching the Dashboard Interface
+
+To execute the visualization platform locally or via Cloud Shell, run the following command:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+streamlit run dashboard.py --server.port 8080
 
-# Run the full pipeline against sample-data/, writing to a local SQLite file
-python main.py
-
-# Explore the results in a browser
-streamlit run src/dashboard.py
 ```
 
-Each module also runs standalone for quick debugging, e.g.:
-
-```bash
-python -m src.ingestion
-python -m src.parser
-python -m src.standardizer
-python -m src.validator
-```
-
-## Moving to GCP (Cloud Storage + BigQuery)
-
-1. Copy `.env.example` to `.env` and fill in `GCP_PROJECT_ID`,
-   `GCS_BUCKET_NAME`, `BQ_DATASET`, `BQ_TABLE`, and point
-   `GOOGLE_APPLICATION_CREDENTIALS` at a service account key.
-2. Install the optional GCP dependencies (uncomment them in
-   `requirements.txt`):
-   ```bash
-   pip install google-cloud-storage google-cloud-bigquery
-   ```
-3. Create the BigQuery dataset/table (schema mirrors
-   `database.py::_insert_bigquery`'s row shape - `record_type`,
-   `source_file`, `document_id`, `correlation_id`,
-   `canonical_fields_json`, `standardization_flags`,
-   `validation_flags`, `inserted_at`).
-4. Run:
-   ```bash
-   python main.py --source gcs --backend bigquery \
-       --gcs-bucket $GCS_BUCKET_NAME --bq-project $GCP_PROJECT_ID
-   ```
-5. Deploy `src/dashboard.py` to Cloud Run for a hosted dashboard; wire
-   Cloud Logging into the existing `logging` calls for centralized logs.
-
-## Design notes / how the mapping configs were built
-
-The `config/test_name_mapping.json` file was seeded from a canonical
-test-name reference sheet (grouping raw variants like `HAEMOGLOBIN`,
-`Haemoglobin`, `Hb` under one canonical `HEMOGLOBIN` key) plus the OCR-
-truncated names observed in the sample lab report (`aemoglobin`,
-`ematocrit HCT`, `eutrophils`, etc. — missing leading characters).
-Because that kind of truncation is common with OCR/extraction pipelines,
-`standardizer.py`'s `NameLookup` does an exact match first and falls back
-to `difflib`-based fuzzy matching (tunable via `FUZZY_MATCH_THRESHOLD`)
-so new truncated variants don't automatically fall through as unmapped.
-
-`config/medicine_mapping.json` maps hospital-specific brand/short names
-(`Inj. Pan`, `CAP. PAN 40`, `INJ PANTOP 40 MG`) to a single generic drug
-name (`PANTOPRAZOLE`) with a drug category, based on the medication
-names present in the two sample discharge summaries.
-
-`config/reference_ranges.json` uses general adult clinical reference
-ranges for the validator's out-of-range check — these are reasonable
-defaults for a demo/portfolio project, not a substitute for lab-specific
-or age/sex-adjusted ranges in a real clinical setting.
-
-## Known limitations / next steps
-
-- Age fields in the sample data are redacted (`[AGE REDACTED]`), so
-  age-based reference range adjustment isn't implemented yet — currently
-  reference ranges are adult general-population defaults regardless of
-  age/gender.
-- Reference ranges are not gender/age-adjusted; that would be a natural
-  next enhancement now that gender is normalized.
-- `database.py`'s BigQuery path is written but untested against a live
-  project — validate the schema and permissions before first real run.
-- No retry/backoff logic on GCS or BigQuery calls yet.
-- Duplicate detection is per-batch (in-memory) rather than checked
-  against everything already stored in BigQuery/SQLite.
+Navigate to the web preview console on port 8080 to access the management interface.

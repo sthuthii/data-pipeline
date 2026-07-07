@@ -88,6 +88,7 @@ class Database:
                     canonical_fields_json TEXT,
                     standardization_flags TEXT,
                     validation_flags TEXT,
+                    raw_payload_json TEXT,
                     inserted_at TEXT
                 )
                 """
@@ -119,6 +120,7 @@ class Database:
                     json.dumps(c.canonical_fields, default=str),
                     json.dumps(c.standardization_flags),
                     json.dumps(v.validation_flags),
+                    getattr(c, "raw_payload_json", "{}"),
                     now,
                 )
             )
@@ -127,8 +129,8 @@ class Database:
                 f"""
                 INSERT INTO {CANONICAL_TABLE}
                 (record_type, source_file, document_id, correlation_id,
-                 canonical_fields_json, standardization_flags, validation_flags, inserted_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 canonical_fields_json, standardization_flags, validation_flags, raw_payload_json, inserted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 rows,
             )
@@ -172,6 +174,7 @@ class Database:
                     "canonical_fields_json": json.dumps(c.canonical_fields, default=str),
                     "standardization_flags": json.dumps(c.standardization_flags),
                     "validation_flags": json.dumps(v.validation_flags),
+                    "raw_payload_json": getattr(c, "raw_payload_json", "{}"),
                     "inserted_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
@@ -184,13 +187,29 @@ class Database:
         return len(rows_to_insert)
 
     # ------------------------------------------------------------------ #
-    # Read-back helpers (used by dashboard.py)
+    # Unified Read-back API
     # ------------------------------------------------------------------ #
 
-    def fetch_all_sqlite(self) -> list[dict]:
-        if self.backend != "sqlite":
-            raise NotImplementedError("fetch_all_sqlite only supports the sqlite backend")
-        with sqlite3.connect(self.sqlite_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cur = conn.execute(f"SELECT * FROM {CANONICAL_TABLE} ORDER BY id DESC")
-            return [dict(row) for row in cur.fetchall()]
+    def fetch_all(self) -> list[dict]:
+        """Unified data extractor supporting active SQLite or GCP BigQuery engine configurations."""
+        if self.backend == "sqlite":
+            with sqlite3.connect(self.sqlite_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute(f"SELECT * FROM {CANONICAL_TABLE} ORDER BY id DESC")
+                return [dict(row) for row in cur.fetchall()]
+        
+        # BigQuery Production Read-back
+        try:
+            from google.cloud import bigquery
+        except ImportError as exc:
+            raise ImportError("google-cloud-bigquery is required for the bigquery backend.") from exc
+
+        client = bigquery.Client(project=self.bq_project)
+        table_ref = f"{self.bq_project}.{self.bq_dataset}.{self.bq_table}"
+        
+        query = f"SELECT * FROM `{table_ref}` ORDER BY inserted_at DESC"
+        query_job = client.query(query)
+        results = query_job.result()
+        
+        # Format rows uniformly as standard Python dictionaries containing primitive mappings
+        return [dict(row.items()) for row in results]

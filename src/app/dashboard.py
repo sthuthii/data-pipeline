@@ -30,6 +30,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+DB = Database(
+    backend="bigquery",
+    bq_project="veritas-claims-analytics",
+    bq_dataset="medical_data",
+    bq_table="canonical_records"
+)
+
 # Apply global CSS override to enforce corporate styling guidelines
 st.markdown("""
     <style>
@@ -90,16 +97,30 @@ def records_to_dataframe(rows: list[dict], defined_tests: list[str]) -> tuple[pd
     df["canonical_fields"] = df["canonical_fields_json"].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
     df["standardization_flags"] = df["standardization_flags"].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
     df["validation_flags"] = df["validation_flags"].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
+
+
+
     
-    # Audit trail retention alignment
+    # Inside records_to_dataframe in src/dashboard.py:
+    
+    def safely_parse_json(x):
+        if not isinstance(x, str) or not x.strip():
+            return x if isinstance(x, dict) else {}
+        try:
+            return json.loads(x)
+        except json.JSONDecodeError:
+            # Fallback for Python single-quoted stringified dictionaries
+            import ast
+            try:
+                return ast.literal_eval(x)
+            except Exception:
+                return {}
+
+    # Update the unpacking lines to use the safe parser helper
     if "raw_payload_json" in df.columns:
-        df["raw_json_unpacked"] = df["raw_payload_json"].apply(
-            lambda x: json.loads(x) if isinstance(x, str) and x.strip() else (x if isinstance(x, dict) else {})
-        )
+        df["raw_json_unpacked"] = df["raw_payload_json"].apply(safely_parse_json)
     elif "raw_json" in df.columns:
-        df["raw_json_unpacked"] = df["raw_json"].apply(
-            lambda x: json.loads(x) if isinstance(x, str) and x.strip() else (x if isinstance(x, dict) else {})
-        )
+        df["raw_json_unpacked"] = df["raw_json"].apply(safely_parse_json)
     else:
         df["raw_json_unpacked"] = [{}] * len(df)
     
