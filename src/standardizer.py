@@ -240,11 +240,13 @@ class Standardizer:
         date_str = date_str.strip()
 
         formats_to_try = [
-            "%Y-%m-%d",      
-            "%d/%m/%Y",      
-            "%m/%d/%Y",      
+            "%Y-%m-%d",      #2025-06-11
+            "%d/%m/%Y",      #11/06/2025
+            "%m/%d/%Y",      #06/11/2025
             "%d/%b/%Y",      # 10/Oct/2025
-            "%d-%b-%Y"       
+            "%d-%b-%Y",      # 11-Oct-2025
+            "%d-%m-%Y",      # 09-10-2025  
+            "%m-%d-%Y"       #06-11-2025
         ]
 
         for fmt in formats_to_try:
