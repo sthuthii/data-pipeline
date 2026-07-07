@@ -160,32 +160,6 @@ class Parser:
             )
         return rows
     
-    def normalize_date(self, date_str:str) ->str:
-        if not date_str or not isinstance(date_str, str):
-            return None
-
-        date_str = date_str.strip()
-    
-    # Define standard clinical date formats to attempt to sweep
-        formats_to_try = [
-        "%Y-%m-%d",      # 2025-10-10
-        "%d/%m/%Y",      # 10/10/2025
-        "%m/%d/%Y",      # 10/10/2025 (US variant)
-        "%d/%b/%Y",      # 10/Oct/2025  <-- ADD THIS ONE FOR THE FIX!
-        "%d-%b-%Y"       # 10-Oct-2025  (Bonus safety fallback)
-        ]
-    
-        for fmt in formats_to_try:
-            try:
-                parsed_dt = datetime.strptime(date_str, fmt)
-                return parsed_dt.date().isoformat()  # Returns clean "2025-10-10"
-            except ValueError:
-                continue
-            
-    # If all options exhaust, log the warning and fallback gracefully
-        self.logger.warning(f"Could not parse date: {date_str}")
-        return None
-
 
 if __name__ == "__main__":
     import logging
