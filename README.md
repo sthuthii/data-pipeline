@@ -207,18 +207,25 @@ streamlit run dashboard.py --server.port 8080
 
 ```
 Navigate to the web preview console on port 8080 to access the management interface.
-
-# Live URL : https://medical-dashboard-ui-xp6wcb6dcq-as.a.run.app 
+ 
 
 
 ##  System Limitations & Technical Debt
 
 While the current architecture cleanly orchestrates asynchronous clinical ingestion pipelines, several structural boundary constraints have been consciously accepted for this release iteration:
 
-* **Static JSON Schema Dependencies:** The `Parser` framework assumes incoming clinic data payloads arrive exclusively as structured JSON strings. Native support for legacy healthcare data formats (such as HL7v2 pipe-delimited streams or binary DICOM envelopes) is not supported without an external pre-parsing layer.
+* Current Limitations
+JSON Only: The system expects raw data as JSON. Legacy healthcare formats (like HL7v2 or DICOM) require an external pre-parsing layer.
 
-* **In-Memory Config Boundaries:** The `Standardizer` resolves varying vocabulary naming dictionaries by reading `test_name_mapping.json` directly into dynamic server container memory on startup. While highly performant for hundreds of definitions, scaling this dictionary to support hundreds of thousands of institutional codes would require moving translation pairs out of local memory and into an active Redis cache or a managed relational mapping database.
+* In-Memory Mappings: Translation dictionaries are loaded into container memory on startup. This is incredibly fast for hundreds of codes, but scaling to hundreds of thousands would require an external database or Redis cache.
 
-* **Single-Value Range Thresholds:** The biological `Validator` currently maps normal physiological limits via static upper and lower numeric boundaries. It does not dynamically adjust reference thresholds based on patient-specific multi-variable parameters (such as unique tracking combinations of patient age, historical trend baselines, or biological sex flags).
+* Static Health Thresholds: High/low safety ranges are fixed numbers. They don't automatically adjust based on combinations of a patient's age, sex, or medical history.
 
-* **Manual Dead-Letter Pipeline Triage:** If a payload experiences repeated corruption timeouts or database permission errors, the messaging system isolates it cleanly inside a Pub/Sub Dead-Letter Queue (DLQ). However, correcting and re-injecting those poisoned messages back into the production pipeline currently requires manual administrator execution rather than an automated automated re-drive engine.
+* Manual DLQ Re-runs: Bad or broken files are successfully isolated in a Dead-Letter Queue (DLQ), but fixing and re-processing them requires manual administrator intervention for now.
+
+---
+## Architectural Trade-offs
+* BigQuery vs. Standard SQL: Slightly slower file-write speeds, but infinitely faster historical dashboard queries without any index maintenance.
+* Cloud Run vs. Kubernetes: We sacrificed deep cluster networking tweaks for zero server management and an auto-scaling cloud bill that drops to $0$ when idle.
+* JSON Configs vs. Database Lookups: Rule changes require a quick configuration file save instead of a live database cell edit, but it keeps our processing loop lightning-fast by avoiding network round-trips.
+* Flagging vs. Dropping Data: We save and tag imperfect rows instead of rejecting them. This keeps some flagged entries in our tables, but it ensures an unbroken audit trail for administrators to troubleshoot.
