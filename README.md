@@ -129,6 +129,25 @@ A fast, lightweight API server engineered using FastAPI to act as an un-buffered
 
 ---
 
+## Technology Stack & Operational Infrastructure
+
+The platform leverages a fully decoupled, serverless, and event-driven architecture built on top of the Google Cloud ecosystem to guarantee high availability and horizontal scaling.
+
+### 1. Core Core Application Layers
+* **Language Runtime:** `Python 3.11`
+* **API Orchestration Framework:** `FastAPI` 
+* **Operational Dashboard:** `Streamlit` 
+* **Data Matrix Transformations:** `Pandas` / `Pydantic` 
+
+### 2. Managed Google Cloud Infrastructure
+* **Compute Execution Engine:** `Google Cloud Run` 
+* **Event Broker Routing:** `Google Eventarc` 
+* **Object Landing Storage:** `Google Cloud Storage (GCS)` 
+* **Asynchronous Buffer / DLQ:** `Google Cloud Pub/Sub`
+* **Enterprise Analytics Warehouse:** `Google BigQuery`
+* **Container Compilation Pipeline:** `Google Cloud Build`
+
+---
 ## Deployment Guide
 
 ### Prerequisites
@@ -187,5 +206,19 @@ To execute the visualization platform locally or via Cloud Shell, run the follow
 streamlit run dashboard.py --server.port 8080
 
 ```
-
 Navigate to the web preview console on port 8080 to access the management interface.
+
+# Live URL : https://medical-dashboard-ui-xp6wcb6dcq-as.a.run.app 
+
+
+##  System Limitations & Technical Debt
+
+While the current architecture cleanly orchestrates asynchronous clinical ingestion pipelines, several structural boundary constraints have been consciously accepted for this release iteration:
+
+* **Static JSON Schema Dependencies:** The `Parser` framework assumes incoming clinic data payloads arrive exclusively as structured JSON strings. Native support for legacy healthcare data formats (such as HL7v2 pipe-delimited streams or binary DICOM envelopes) is not supported without an external pre-parsing layer.
+
+* **In-Memory Config Boundaries:** The `Standardizer` resolves varying vocabulary naming dictionaries by reading `test_name_mapping.json` directly into dynamic server container memory on startup. While highly performant for hundreds of definitions, scaling this dictionary to support hundreds of thousands of institutional codes would require moving translation pairs out of local memory and into an active Redis cache or a managed relational mapping database.
+
+* **Single-Value Range Thresholds:** The biological `Validator` currently maps normal physiological limits via static upper and lower numeric boundaries. It does not dynamically adjust reference thresholds based on patient-specific multi-variable parameters (such as unique tracking combinations of patient age, historical trend baselines, or biological sex flags).
+
+* **Manual Dead-Letter Pipeline Triage:** If a payload experiences repeated corruption timeouts or database permission errors, the messaging system isolates it cleanly inside a Pub/Sub Dead-Letter Queue (DLQ). However, correcting and re-injecting those poisoned messages back into the production pipeline currently requires manual administrator execution rather than an automated automated re-drive engine.
