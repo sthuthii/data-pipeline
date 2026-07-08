@@ -364,3 +364,7 @@ JSON Only: The system expects raw data as JSON. Legacy healthcare formats (like 
 * Cloud Run vs. Kubernetes: We sacrificed deep cluster networking tweaks for zero server management and an auto-scaling cloud bill that drops to $0$ when idle.
 * JSON Configs vs. Database Lookups: Rule changes require a quick configuration file save instead of a live database cell edit, but it keeps our processing loop lightning-fast by avoiding network round-trips.
 * Flagging vs. Dropping Data: We save and tag imperfect rows instead of rejecting them. This keeps some flagged entries in our tables, but it ensures an unbroken audit trail for administrators to troubleshoot.
+
+---
+Note:
+The data contained in /sample-data is to be used for only experimentation and tests, hence it has been pushed to the repo. The sensitive medical data by any means isnt supposed to be present and pushed to the repository.
