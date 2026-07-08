@@ -148,43 +148,178 @@ The platform leverages a fully decoupled, serverless, and event-driven architect
 * **Container Compilation Pipeline:** `Google Cloud Build`
 
 ---
-## Deployment Guide
+# Deployment Guide
 
-### Prerequisites
+## Prerequisites
 
-* Google Cloud SDK (gcloud CLI) initialized.
-* Authorized project access to `veritas-claims-analytics`.
-* Configured Container Registry permissions.
+Before deploying, ensure you have:
 
-### Steps to Build and Deploy the Execution Engine
+- Google Cloud SDK (`gcloud` CLI) installed and initialized.
+- Access to the **veritas-claims-analytics** Google Cloud project.
+- Permission to use Cloud Build, Cloud Run, and Container Registry (or Artifact Registry).
 
-1. **Compile and Containerize with Cloud Build:**
-Submit your code context to Cloud Build to package the worker application environment into an automated container image:
+---
+
+## Build and Deploy the Application
+
+### Step 1: Build the Container Image
+
+Use Cloud Build to build the application container.
+
 ```bash
 gcloud builds submit --config=cloudbuild.yaml .
-
 ```
 
+---
 
-2. **Deploy to Cloud Run:**
-Launch the container into a managed Cloud Run instance within your designated data sovereignty region:
+### Step 2: Deploy to Cloud Run
+
+Deploy the generated container image to Cloud Run.
+
 ```bash
 gcloud run deploy medical-dashboard \
     --image gcr.io/veritas-claims-analytics/medical-worker:latest \
     --region asia-southeast1
-
 ```
 
+---
 
-3. **Verify Deployment Health:**
-Ensure that the target service boots without errors and confirms structural port initialization by reading the Cloud Run revision history logs:
+### Step 3: Verify the Deployment
+
+Check the Cloud Run logs to confirm that the service started successfully.
+
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=medical-dashboard AND NOT textPayload:_stcore" --limit=20 --format="value(textPayload)"
-
+gcloud logging read \
+"resource.type=cloud_run_revision AND resource.labels.service_name=medical-dashboard AND NOT textPayload:_stcore" \
+--limit=20 \
+--format="value(textPayload)"
 ```
 
+---
 
+# Local Setup & Development Guide
 
+Follow these steps to configure, run, and test the application locally without requiring an active Google Cloud environment.
+
+---
+
+## 1. Prerequisites
+
+Ensure you have the following installed:
+
+- Python 3.11 or later
+- Git
+- pip
+
+---
+
+## 2. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+```
+
+---
+
+## 3. Create a Virtual Environment
+
+### Windows (PowerShell)
+
+```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+### macOS / Linux
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+---
+
+## 4. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 5. Configure Environment Variables
+
+Create a `.env.local` file in the project root.
+
+Copy the contents of `.env.local.example` into `.env.local`.
+
+Example project structure:
+
+```text
+project-root/
+├── .env.local
+├── .env.local.example
+├── requirements.txt
+└── src/
+```
+
+---
+
+## 6. Start the FastAPI Worker
+
+Run the FastAPI application:
+
+```bash
+uvicorn src.worker:app --host 127.0.0.1 --port 8000 --reload
+```
+
+The API will be available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+---
+
+## 7. Trigger a Sample Local Ingestion
+
+Open a new terminal while the FastAPI server is running and execute:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/webhook" \
+  -H "Content-Type: application/json" \
+  -d @sample_data/sample_lab_report.json
+```
+
+---
+
+## 8. Launch the Streamlit Dashboard
+
+In a separate terminal, start the dashboard:
+
+```bash
+streamlit run dashboard.py
+```
+
+The dashboard will be available at:
+
+```text
+http://localhost:8501
+```
+
+---
+
+## Local Development Workflow
+
+1. Clone the repository.
+2. Create and activate a virtual environment.
+3. Install the required dependencies.
+4. Configure the `.env.local` file.
+5. Start the FastAPI worker.
+6. Send a sample request using `curl`.
+7. Launch the Streamlit dashboard.
+8. Verify that the processed data appears correctly in the dashboard.
 ---
 
 ## Data Control Tower Dashboard UI
