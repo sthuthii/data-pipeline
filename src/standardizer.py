@@ -42,7 +42,6 @@ GENDER_MAP = {
 }
 
 @dataclass
-@dataclass
 class CanonicalRecord:
     record_type: str
     source_file: str
@@ -132,13 +131,16 @@ class Standardizer:
         numeric_result, is_numeric = self._to_numeric(f.get("result_raw"))
         low, high = self._parse_range(f.get("range_raw"))
 
+        report_date, date_flags = self._normalize_date(f.get("report_date"))
+        flags.extend(date_flags)
+
         canonical = {
             "patient_name": f.get("patient_name"),
             "uhid": f.get("uhid"),
             "age": self._clean_age(f.get("age")),
             "gender": self._normalize_gender(f.get("gender")),
             "hospital_name": f.get("lab_or_hospital_name"),
-            "report_date": self._normalize_date(f.get("report_date")),
+            "report_date": report_date,
             "test_name": test_name,
             "test_name_raw": f.get("test_name_raw"),
             "result_raw": f.get("result_raw"),
@@ -172,13 +174,21 @@ class Standardizer:
         if f.get("medicine_name_raw") and not mapped:
             flags.append("UNMAPPED_MEDICINE_NAME")
 
+        admission_date, adm_date_flags = self._normalize_date(f.get("admission_date_raw"))
+        discharge_date, dis_date_flags = self._normalize_date(f.get("discharge_date_raw"))
+        flags.extend(adm_date_flags)
+        flags.extend(dis_date_flags)
+
+        # De-duplicate flags if both date fields generated identical tokens
+        flags = list(set(flags))
+
         canonical = {
             "patient_name": f.get("patient_name"),
             "age": self._clean_age(f.get("age")),
             "gender": self._normalize_gender(f.get("gender")),
             "hospital_name": f.get("hospital_name"),
-            "admission_date": self._normalize_date(f.get("admission_date_raw")),
-            "discharge_date": self._normalize_date(f.get("discharge_date_raw")),
+            "admission_date": admission_date,
+            "discharge_date": discharge_date,
             "diagnosis": f.get("diagnosis"),
             "medicine_name": medicine_name,
             "medicine_name_raw": f.get("medicine_name_raw"),
@@ -203,13 +213,21 @@ class Standardizer:
 
     def _standardize_discharge_summary(self, row: RawRow) -> CanonicalRecord:
         f = row.fields
+        flags: list[str] = []
+
+        admission_date, adm_date_flags = self._normalize_date(f.get("admission_date_raw"))
+        discharge_date, dis_date_flags = self._normalize_date(f.get("discharge_date_raw"))
+        flags.extend(adm_date_flags)
+        flags.extend(dis_date_flags)
+        flags = list(set(flags))
+
         canonical = {
             "patient_name": f.get("patient_name"),
             "age": self._clean_age(f.get("age")),
             "gender": self._normalize_gender(f.get("gender")),
             "hospital_name": f.get("hospital_name"),
-            "admission_date": self._normalize_date(f.get("admission_date_raw")),
-            "discharge_date": self._normalize_date(f.get("discharge_date_raw")),
+            "admission_date": admission_date,
+            "discharge_date": discharge_date,
             "diagnosis": f.get("diagnosis"),
             "brief_history": f.get("brief_history"),
             "recommendations": f.get("recommendations"),
@@ -221,38 +239,45 @@ class Standardizer:
             correlation_id=row.correlation_id,
             raw_payload_json=getattr(row, "raw_text", str(row.fields)),
             canonical_fields=canonical,
-            standardization_flags=[],
+            standardization_flags=flags,
         )
 
     # ------------------------------------------------------------------ #
     # Field-level helpers
     # ------------------------------------------------------------------ #
 
-    def _normalize_date(self, date_str: str) -> Optional[str]:
+    def _normalize_date(self, date_str: str) -> tuple[Optional[str], list[str]]:
+        flags: list[str] = []
         if not date_str or not isinstance(date_str, str):
-            return None
+            return None, flags
 
         date_str = date_str.strip()
 
+        # Catch raw template placeholder entries cleanly before running evaluation loops
+        if date_str.upper() in ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD", "PLACEHOLDER"]:
+            flags.append("MISSING_DATE_VALUE")
+            return None, flags
+
         formats_to_try = [
-            "%Y-%m-%d",      #2025-06-11
-            "%d/%m/%Y",      #11/06/2025
-            "%m/%d/%Y",      #06/11/2025
+            "%Y-%m-%d",      # 2025-06-11
+            "%d/%m/%Y",      # 11/06/2025
+            "%m/%d/%Y",      # 06/11/2025
             "%d/%b/%Y",      # 10/Oct/2025
             "%d-%b-%Y",      # 11-Oct-2025
             "%d-%m-%Y",      # 09-10-2025  
-            "%m-%d-%Y"       #06-11-2025
+            "%m-%d-%Y"       # 06-11-2025
         ]
 
         for fmt in formats_to_try:
             try:
                 parsed_dt = datetime.strptime(date_str, fmt)
-                return parsed_dt.date().isoformat()
+                return parsed_dt.date().isoformat(), flags
             except ValueError:
                 continue
 
         logger.warning(f"Could not parse date: {date_str}")
-        return None
+        flags.append("INVALID_DATE_FORMAT")
+        return None, flags
 
     @staticmethod
     def _normalize_gender(raw: Optional[str]) -> Optional[str]:
