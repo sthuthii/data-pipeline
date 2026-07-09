@@ -49,6 +49,7 @@ The platform uses a decoupled, event-driven microservices architecture optimized
 └────────────────────────────────┘
 
 ```
+Live url : https://medical-dashboard-ui-368850102897.asia-southeast1.run.app
 
 ### Core Engine Stages
 
